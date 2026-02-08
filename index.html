@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGENCYPRO | Enterprise Business OS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617;
+            color: #f1f5f9;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+
+        /* Sidebar Transition */
+        #sidebar { 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .sidebar-collapsed {
+            width: 0 !important;
+            transform: translateX(-100%);
+            overflow: hidden;
+            border-right: none !important;
+        }
+
+        /* Sticky Notes Accent */
+        .sticky-note { transition: all 0.3s ease; border-top: 4px solid; }
+        .sticky-note:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .task-done { text-decoration: line-through; opacity: 0.4; }
+
+        .glass-header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Nav & Button Styles */
+        .nav-btn-active {
+            background-color: #16a34a !important; /* Green Accent */
+            color: white !important;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+
+        .stat-card {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            border-color: #ea580c; /* Orange Accent */
+            transform: translateY(-2px);
+        }
+
+        .orange-accent { color: #ea580c; }
+        .green-accent { color: #16a34a; }
+        
+        .btn-primary { background-color: #16a34a; transition: all 0.2s; }
+        .btn-primary:hover { background-color: #15803d; transform: scale(1.02); }
+        
+        .btn-secondary { background-color: #ea580c; transition: all 0.2s; }
+        .btn-secondary:hover { background-color: #c2410c; transform: scale(1.02); }
+
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn {
+            from { transform: translateX(10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Timeline Connection */
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 24px;
+            bottom: -24px;
+            width: 2px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .timeline-item:last-child::before { display: none; }
+
+        /* Branding when Sidebar is hidden */
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: -0.05em;
+        }
+    </style>
+</head>
+<body class="overflow-hidden dark">
+    <div id="app" class="flex h-screen w-full">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="w-80 flex-shrink-0 border-r border-white/5 bg-[#0f172a] flex flex-col transition-all shadow-2xl z-20">
+            <!-- Sidebar Header with Search -->
+            <div class="p-6 border-b border-white/5">
+                <div class="relative mt-2">
+                    <i data-lucide="search" class="absolute left-3.5 top-3 w-4 h-4 text-slate-500"></i>
+                    <input type="text" id="searchInput" placeholder="Search resources..." 
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/5 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-white text-sm transition-all"
+                        oninput="handleSearch()">
+                </div>
+            </div>
+
+            <!-- Workspace Status -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="px-6 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
+                    <span id="workspaceStatus" class="text-[10px] font-black text-orange-500 uppercase tracking-widest">Workspace: Loading</span>
+                    <span id="itemCountBadge" class="text-[9px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded-full font-bold border border-green-500/20">0</span>
+                </div>
+                <div id="sidebarList" class="flex-1 overflow-y-auto custom-scrollbar">
+                    <!-- Dynamic List -->
+                </div>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <div class="p-5 border-t border-white/5 bg-[#0f172a] space-y-4">
+                <nav class="grid grid-cols-1 gap-1">
+                    <button onclick="switchTab('dashboard')" id="btnTabDashboard" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:bg-white/5">
+                        <i data-lucide="layout-grid" class="w-4 h-4"></i> DASHBOARD
+                    </button>
+                    <button onclick="switchTab('prompts')" id="btnTabPrompts" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:bg-white/5">
+                        <i data-lucide="terminal" class="w-4 h-4"></i> PROMPTS HUB
+                    </button>
+                    <button onclick="switchTab('notes')" id="btnTabNotes" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:bg-white/5">
+                        <i data-lucide="sticky-note" class="w-4 h-4"></i> NOTES BOARD
+                    </button>
+                    <button onclick="switchTab('tasks')" id="btnTabTasks" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:bg-white/5">
+                        <i data-lucide="check-square" class="w-4 h-4"></i> DAILY OPS
+                    </button>
+                    <button onclick="switchTab('leads')" id="btnTabLeads" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400 hover:bg-white/5">
+                        <i data-lucide="users" class="w-4 h-4"></i> CRM LEADS
+                    </button>
+                </nav>
+
+                <!-- Action Group -->
+                <div class="pt-4 border-t border-white/5 grid grid-cols-3 gap-2">
+                    <button onclick="exportJSON()" title="Full Backup" class="flex flex-col items-center justify-center gap-1 p-2 bg-slate-900 rounded-xl text-slate-500 hover:text-green-500 transition-all">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span class="text-[8px] font-bold uppercase tracking-tighter">Backup</span>
+                    </button>
+                    <button onclick="document.getElementById('jsonRestore').click()" title="Import File" class="flex flex-col items-center justify-center gap-1 p-2 bg-slate-900 rounded-xl text-slate-500 hover:text-orange-500 transition-all">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <span class="text-[8px] font-bold uppercase tracking-tighter">Import</span>
+                    </button>
+                    <button onclick="resetApp()" title="Reset System" class="flex flex-col items-center justify-center gap-1 p-2 bg-red-900/10 rounded-xl text-slate-600 hover:text-red-500 transition-all">
+                        <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
+                        <span class="text-[8px] font-bold uppercase tracking-tighter">Wipe</span>
+                    </button>
+                    <input type="file" id="jsonRestore" accept=".json" class="hidden" onchange="importJSON(event)">
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col bg-[#020617] transition-colors relative overflow-hidden">
+            
+            <!-- Persistent Header with Branding & Toggle -->
+            <header class="p-6 flex items-center justify-between glass-header z-30">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="p-2.5 bg-slate-900 border border-white/5 rounded-xl shadow-xl text-slate-500 hover:text-orange-500 transition-all">
+                        <i data-lucide="menu" id="toggleIcon"></i>
+                    </button>
+                    <!-- Logo always visible here -->
+                    <div class="brand-logo ml-2">
+                        <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-900/20">
+                            <i data-lucide="zap" class="text-white w-5 h-5 fill-white"></i>
+                        </div>
+                        <span class="text-white uppercase">AGENCY<span class="text-orange-500 font-black">PRO</span></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="hidden md:flex flex-col items-end leading-none">
+                        <div id="headerDate" class="font-bold text-slate-300 text-sm">Date</div>
+                        <span class="text-[9px] text-green-500 font-black uppercase tracking-[0.2em]">Operational</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- DASHBOARD VIEW -->
+            <section id="dashboardView" class="flex-1 flex flex-col h-full overflow-hidden slide-in">
+                <div class="flex-1 p-10 overflow-y-auto custom-scrollbar">
+                    <div class="max-w-6xl mx-auto space-y-10">
+                        <!-- Stats Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div class="stat-card p-8 rounded-[2.5rem] shadow-sm">
+                                <i data-lucide="terminal" class="w-8 h-8 green-accent mb-4"></i>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Prompts Registry</p>
+                                <h3 id="statPrompts" class="text-4xl font-black mt-1 text-white">0</h3>
+                            </div>
+                            <div class="stat-card p-8 rounded-[2.5rem] shadow-sm">
+                                <i data-lucide="users" class="w-8 h-8 orange-accent mb-4"></i>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Pipeline Leads</p>
+                                <h3 id="statLeads" class="text-4xl font-black mt-1 text-white">0</h3>
+                            </div>
+                            <div class="stat-card p-8 rounded-[2.5rem] shadow-sm">
+                                <i data-lucide="check-circle" class="w-8 h-8 green-accent mb-4"></i>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Tasks Completed</p>
+                                <h3 id="statTasks" class="text-4xl font-black mt-1 text-white">0</h3>
+                            </div>
+                            <div class="stat-card p-8 rounded-[2.5rem] shadow-sm">
+                                <i data-lucide="sticky-note" class="w-8 h-8 orange-accent mb-4"></i>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Team Drafts</p>
+                                <h3 id="statNotes" class="text-4xl font-black mt-1 text-white">0</h3>
+                            </div>
+                        </div>
+
+                        <!-- Funnel & Strategy -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div class="lg:col-span-1 bg-[#0f172a] border border-white/5 p-8 rounded-[2.5rem] shadow-xl">
+                                <h4 class="text-lg font-extrabold mb-6 text-white uppercase tracking-tight">Conversion Funnel</h4>
+                                <div id="pipelineStatusList" class="space-y-5"></div>
+                            </div>
+                            <div class="lg:col-span-2 bg-[#0f172a] text-white p-10 rounded-[3rem] shadow-2xl relative border border-white/5 overflow-hidden">
+                                <h4 class="text-2xl font-extrabold mb-6 flex items-center gap-3">
+                                    <i data-lucide="target" class="text-orange-500"></i> Global Business Strategy
+                                </h4>
+                                <textarea id="actionPlanInput" oninput="saveActionPlan()" placeholder="Define goals for this quarter..." class="w-full h-48 bg-white/5 border border-white/10 rounded-2xl p-6 outline-none focus:ring-1 focus:ring-green-500 resize-none font-medium text-slate-300 leading-relaxed"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROMPTS GRID VIEW -->
+            <section id="promptsView" class="flex-1 hidden flex flex-col h-full overflow-hidden slide-in">
+                <header class="px-10 py-6 border-b border-white/5 bg-black/10 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-extrabold text-white uppercase">AI Prompt Library</h2>
+                        <p class="text-slate-500 text-sm">Quick copy cards for team assets.</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="openModal('add')" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-white rounded-xl font-bold shadow-lg">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New Prompt
+                        </button>
+                    </div>
+                </header>
+                <div class="flex-1 p-8 overflow-y-auto custom-scrollbar bg-black/10">
+                    <div id="promptsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+                </div>
+            </section>
+
+            <!-- DAILY TASKS VIEW -->
+            <section id="tasksView" class="flex-1 hidden flex flex-col h-full overflow-hidden slide-in">
+                <header class="px-10 py-6 border-b border-white/5 bg-black/10 flex items-center justify-between">
+                    <div class="flex gap-4 items-center">
+                        <h2 class="text-2xl font-extrabold text-white uppercase">Ops Register</h2>
+                        <select id="taskFilter" onchange="renderTasks()" class="bg-slate-900 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg border border-white/10 outline-none text-green-500">
+                            <option value="All">All Ops</option>
+                            <option value="Client">Client Work</option>
+                            <option value="Internal">Internal Dev</option>
+                            <option value="Urgent">Critical</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <input type="text" id="taskInput" placeholder="Quick log task..." class="px-5 py-3 bg-slate-900/50 border border-white/5 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 min-w-[300px] text-white">
+                        <button onclick="addNewTask()" class="btn-primary px-8 py-3 text-white rounded-xl font-black">ADD LOG</button>
+                    </div>
+                </header>
+                <div class="flex-1 overflow-y-auto p-10 bg-black/10 custom-scrollbar">
+                    <div class="max-w-4xl mx-auto space-y-6" id="taskList"></div>
+                </div>
+            </section>
+
+            <!-- NOTES BOARD VIEW -->
+            <section id="notesView" class="flex-1 hidden flex flex-col h-full overflow-hidden slide-in">
+                <header class="px-10 py-6 border-b border-white/5 bg-black/10 flex items-center justify-between">
+                    <div class="flex gap-4 items-center">
+                        <h2 class="text-2xl font-extrabold text-white uppercase">Knowledge Board</h2>
+                        <select id="notesFilter" onchange="renderNotes()" class="bg-slate-900 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg border border-white/10 outline-none text-orange-500">
+                            <option value="All">Show All</option>
+                            <option value="Idea">Creative Idea</option>
+                            <option value="Meeting">Meeting Log</option>
+                            <option value="Draft">Draft</option>
+                        </select>
+                    </div>
+                    <button onclick="addNewNote()" class="btn-secondary px-8 py-3 text-white rounded-xl font-black">NEW DRAFT</button>
+                </header>
+                <div id="notesGrid" class="flex-1 p-10 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 custom-scrollbar"></div>
+            </section>
+
+            <!-- CRM VIEW -->
+            <section id="leadsView" class="flex-1 hidden flex flex-col h-full overflow-hidden slide-in">
+                <header class="px-10 py-6 border-b border-white/5 bg-black/10 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-extrabold text-white uppercase">Revenue CRM</h2>
+                        <p class="text-slate-500 text-sm">Pipeline management and prospect history.</p>
+                    </div>
+                    <button onclick="openLeadModal()" class="btn-primary px-8 py-3 text-white rounded-xl font-black">NEW PROSPECT</button>
+                </header>
+                <div class="flex-1 overflow-x-auto p-10">
+                    <div class="min-w-[900px] bg-[#0f172a] rounded-[2.5rem] border border-white/5 overflow-hidden shadow-sm">
+                        <table class="w-full text-left">
+                            <thead class="bg-black/20 border-b border-white/5">
+                                <tr>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-500 tracking-widest">Lead ID & Prospect</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-500 tracking-widest">Contact Information</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-500 tracking-widest">Pipeline Status</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-400 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leadTableBody" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- OVERLAY VIEWER (Asset) -->
+    <div id="assetViewerOverlay" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden flex items-center justify-center p-6">
+        <div class="bg-[#0f172a] w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-in zoom-in duration-200">
+            <header class="p-6 border-b border-white/5 flex items-center justify-between">
+                <div><h2 id="viewTitle" class="text-xl font-extrabold text-white">Detail</h2></div>
+                <button onclick="closeAssetViewer()" class="p-2 text-slate-500 hover:text-orange-500 transition-all"><i data-lucide="x"></i></button>
+            </header>
+            <div class="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar bg-black/20">
+                <pre id="viewContent" class="whitespace-pre-wrap font-sans text-base text-slate-300 leading-relaxed"></pre>
+            </div>
+            <footer class="p-6 border-t border-white/5 flex justify-end gap-3">
+                <button onclick="copyCurrentPrompt()" class="btn-primary px-8 py-3 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-green-900/20">Copy Content</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- LEAD DETAIL OVERLAY -->
+    <div id="leadDetailOverlay" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-[#0f172a] w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-in slide-in-from-right duration-300 h-[85vh] flex flex-col">
+            <header class="p-6 border-b border-white/5 flex items-center justify-between glass-header">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-orange-600/20 rounded-full flex items-center justify-center text-orange-500">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div>
+                        <h2 id="detailLeadName" class="text-2xl font-extrabold text-white leading-tight">Lead Name</h2>
+                        <p id="detailLeadId" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">ID: L-000000</p>
+                    </div>
+                </div>
+                <button onclick="closeLeadDetail()" class="p-2 text-slate-500 hover:text-red-500 transition-all"><i data-lucide="x"></i></button>
+            </header>
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Info -->
+                <div class="w-1/3 border-r border-white/5 p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                    <div class="space-y-6">
+                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Profile Dossier</h3>
+                        <div>
+                            <label class="text-[9px] text-slate-500 font-black block uppercase mb-1">Email</label>
+                            <p id="detailLeadEmail" class="text-sm font-semibold text-white break-all">email@example.com</p>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-500 font-black block uppercase mb-1">Phone</label>
+                            <p id="detailLeadPhone" class="text-sm font-semibold text-white">+91 00000 00000</p>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-500 font-black block uppercase mb-1">Source</label>
+                            <p id="detailLeadSource" class="text-sm font-semibold text-white italic">Website / Referral</p>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-500 font-black block uppercase mb-1">Status</label>
+                            <select id="detailLeadStatus" onchange="updateDetailLeadStatus(this.value)" class="w-full mt-1 bg-slate-900 border border-white/10 rounded-lg py-2 px-3 text-xs font-bold text-orange-500">
+                                <option value="New">New</option>
+                                <option value="Contacted">Contacted</option>
+                                <option value="Qualified">Qualified</option>
+                                <option value="Closed">Closed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <!-- Timeline -->
+                <div class="w-2/3 flex flex-col overflow-hidden bg-black/10">
+                    <div class="p-6 border-b border-white/5 bg-slate-900/30">
+                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Interactions History</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="conversationInput" placeholder="Log update..." class="flex-1 bg-slate-950 border border-white/5 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-green-500">
+                            <button onclick="addConversationLog()" class="btn-primary px-5 rounded-xl text-[10px] font-black uppercase text-white">Log</button>
+                        </div>
+                    </div>
+                    <div id="detailTimeline" class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTRY MODAL -->
+    <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-50 flex items-center justify-center p-6">
+        <div id="modalContainer" class="bg-[#0f172a] w-full max-w-2xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-in zoom-in duration-300">
+            <!-- Dynamic Form -->
+        </div>
+    </div>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="notification" class="fixed bottom-12 right-12 px-10 py-5 bg-slate-900 text-white rounded-[2rem] shadow-2xl translate-y-40 transition-transform duration-500 flex items-center gap-5 z-50 border border-white/10">
+        <i data-lucide="check-circle-2" class="text-green-500 w-6 h-6"></i>
+        <span id="notificationText" class="font-black tracking-tight text-sm uppercase">Done</span>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const leadStatuses = ['New', 'Contacted', 'Qualified', 'Closed'];
+        const noteColors = [
+            { bg: 'bg-green-950/30', text: 'text-green-400', border: 'border-green-500' },
+            { bg: 'bg-orange-950/30', text: 'text-orange-400', border: 'border-orange-500' },
+            { bg: 'bg-blue-950/30', text: 'text-blue-400', border: 'border-blue-500' },
+            { bg: 'bg-purple-950/30', text: 'text-purple-400', border: 'border-purple-500' }
+        ];
+
+        // --- STATE ---
+        let prompts = JSON.parse(localStorage.getItem('agency_prompts') || '[]');
+        let notes = JSON.parse(localStorage.getItem('agency_notes') || '[]');
+        let tasks = JSON.parse(localStorage.getItem('agency_tasks') || '[]');
+        let leads = JSON.parse(localStorage.getItem('agency_leads') || '[]');
+        let actionPlan = localStorage.getItem('agency_action_plan') || '';
+        
+        let isSidebarOpen = true;
+        let currentPromptId = null;
+        let currentLeadId = null;
+        let activeTab = 'dashboard';
+
+        // --- INIT ---
+        window.onload = () => {
+            document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('actionPlanInput').value = actionPlan;
+            switchTab('dashboard');
+            lucide.createIcons();
+            
+            const storedSidebar = localStorage.getItem('sidebar_open');
+            if (storedSidebar === 'false') toggleSidebar();
+        };
+
+        function saveData() { 
+            localStorage.setItem('agency_prompts', JSON.stringify(prompts)); 
+            localStorage.setItem('agency_notes', JSON.stringify(notes)); 
+            localStorage.setItem('agency_tasks', JSON.stringify(tasks)); 
+            localStorage.setItem('agency_leads', JSON.stringify(leads)); 
+            localStorage.setItem('agency_action_plan', actionPlan); 
+        }
+
+        // --- NAVIGATION ---
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('toggleIcon');
+            sidebar.classList.toggle('sidebar-collapsed');
+            icon.setAttribute('data-lucide', isSidebarOpen ? 'align-left' : 'chevrons-right');
+            localStorage.setItem('sidebar_open', isSidebarOpen);
+            lucide.createIcons();
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            const views = ['dashboard', 'prompts', 'notes', 'tasks', 'leads'];
+            views.forEach(v => {
+                document.getElementById(v + 'View').classList.add('hidden');
+                const btn = document.getElementById('btnTab' + v.charAt(0).toUpperCase() + v.slice(1));
+                if(btn) btn.classList.remove('nav-btn-active');
+            });
+
+            document.getElementById(tab + 'View').classList.remove('hidden');
+            const activeBtn = document.getElementById('btnTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+            if (activeBtn) activeBtn.classList.add('nav-btn-active');
+
+            if (tab === 'dashboard') updateDashboard();
+            if (tab === 'prompts') renderPromptsGrid();
+            if (tab === 'tasks') renderTasks();
+            if (tab === 'notes') renderNotes();
+            if (tab === 'leads') renderLeads();
+            
+            renderSidebar();
+            updateCounts();
+            lucide.createIcons();
+        }
+
+        function updateCounts() {
+            const map = { prompts: prompts.length, notes: notes.length, tasks: tasks.length, leads: leads.length };
+            document.getElementById('itemCountBadge').textContent = map[activeTab] || 0;
+            document.getElementById('workspaceStatus').textContent = `Workspace: ${activeTab.toUpperCase()}`;
+        }
+
+        // --- RENDERERS ---
+        function renderSidebar(filtered = null) {
+            const container = document.getElementById('sidebarList');
+            if (activeTab === 'prompts') {
+                const list = filtered || prompts;
+                container.innerHTML = list.map(p => `
+                    <div onclick="openAssetViewer('${p.id}')" class="asset-item p-4 cursor-pointer border-l-4 transition-all group ${currentPromptId === p.id ? 'bg-green-900/20 border-green-600' : 'border-transparent hover:bg-white/5'} relative">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-xs truncate text-slate-300 max-w-[150px] group-hover:text-white">${escapeHtml(p.title)}</h4>
+                            <div class="asset-item-btn"><button onclick="event.stopPropagation(); copyDirect('${p.id}')" class="p-1 bg-slate-800 border border-white/10 rounded shadow-sm hover:text-green-500 transition-all"><i data-lucide="copy" class="w-3 h-3"></i></button></div>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            } else {
+                container.innerHTML = `<div class="p-10 text-center opacity-40 text-[10px] font-black uppercase tracking-tighter">Navigate to ${activeTab} View</div>`;
+            }
+        }
+
+        function renderPromptsGrid() {
+            const grid = document.getElementById('promptsGrid');
+            if (prompts.length === 0) { grid.innerHTML = `<div class="col-span-full py-20 text-center opacity-30 text-xs font-black uppercase">Library Khali Hai</div>`; return; }
+            grid.innerHTML = prompts.map(p => `
+                <div class="asset-card bg-[#0f172a] p-6 rounded-[2rem] border border-white/5 flex flex-col justify-between group">
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="px-2 py-0.5 rounded-lg bg-green-900/30 text-green-500 border border-green-500/20 text-[8px] font-black uppercase tracking-widest">${escapeHtml(p.label || 'Asset')}</span>
+                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                <button onclick="openModal('edit', '${p.id}')" class="text-slate-500 hover:text-green-500"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                <button onclick="deleteAssetDirect('${p.id}')" class="text-slate-500 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <h4 onclick="openAssetViewer('${p.id}')" class="text-lg font-extrabold text-white cursor-pointer line-clamp-1">${escapeHtml(p.title)}</h4>
+                        <p class="text-xs text-slate-500 line-clamp-2 mt-2 leading-relaxed">${escapeHtml(p.content)}</p>
+                    </div>
+                    <button onclick="copyDirect('${p.id}')" class="w-full mt-6 py-2.5 bg-green-600 text-white rounded-2xl font-black text-xs shadow-lg active:scale-95 transition-all shadow-green-900/20 uppercase tracking-widest">Copy Content</button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderLeads() {
+            const body = document.getElementById('leadTableBody');
+            if (leads.length === 0) { body.innerHTML = `<tr><td colspan="4" class="p-16 text-center opacity-20 font-black text-xs uppercase">No CRM Prospects Found</td></tr>`; return; }
+            body.innerHTML = leads.map(l => `
+                <tr onclick="openLeadDetail('${l.id}')" class="hover:bg-white/5 transition-colors group cursor-pointer">
+                    <td class="px-8 py-6">
+                        <div class="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest">${l.id}</div>
+                        <div class="font-black text-sm text-slate-200 group-hover:text-white">${escapeHtml(l.name)}</div>
+                    </td>
+                    <td class="px-8 py-6">
+                        <div class="text-[10px] font-bold text-slate-300 leading-tight">${escapeHtml(l.email)}</div>
+                        <div class="text-[10px] text-slate-500 font-medium">${escapeHtml(l.phone)}</div>
+                    </td>
+                    <td class="px-8 py-6"><span class="px-3 py-1 rounded-full text-[9px] font-black border border-green-500/20 bg-green-900/20 text-green-500 uppercase tracking-wider">${l.status}</span></td>
+                    <td class="px-8 py-6 text-right"><button onclick="event.stopPropagation(); deleteLead('${l.id}')" class="text-slate-600 hover:text-red-500 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('taskList');
+            const filter = document.getElementById('taskFilter').value;
+            const filtered = filter === 'All' ? tasks : tasks.filter(t => t.category === filter);
+            if (filtered.length === 0) { list.innerHTML = `<div class="p-20 text-center opacity-30 font-black text-xs uppercase">No Logs Found</div>`; return; }
+            list.innerHTML = filtered.map(t => `
+                <div class="bg-[#0f172a] p-8 rounded-[2rem] border border-white/5 group shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-4">
+                            <button onclick="toggleTaskStatus('${t.id}')" class="w-8 h-8 rounded-2xl border-2 ${t.done ? 'bg-green-600 border-green-600 text-white' : 'border-white/20 hover:border-green-500'} transition-all">
+                                ${t.done ? '<i data-lucide="check" class="w-4 h-4"></i>' : ''}
+                            </button>
+                            <div>
+                                <h4 class="text-xl font-bold ${t.done ? 'task-done' : 'text-white'} tracking-tight">${escapeHtml(t.text)}</h4>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[8px] font-black uppercase bg-black/40 border border-white/5 px-2 py-0.5 rounded text-green-500">${t.category}</span>
+                                    <span class="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">${t.createdAt}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="deleteTask('${t.id}')" class="text-slate-600 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                    <textarea oninput="updateTaskDetails('${t.id}', this.value)" placeholder="Work progress updates..." class="w-full ml-12 bg-black/20 border border-white/5 p-5 rounded-2xl text-sm text-slate-300 outline-none focus:ring-1 focus:ring-green-500 resize-none min-h-[80px]">${escapeHtml(t.details || '')}</textarea>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderNotes() {
+            const grid = document.getElementById('notesGrid');
+            const filter = document.getElementById('notesFilter').value;
+            const filtered = filter === 'All' ? notes : notes.filter(n => n.category === filter);
+            if (filtered.length === 0) { grid.innerHTML = `<p class="col-span-full py-20 text-center opacity-30 font-black text-xs uppercase tracking-widest">No drafts</p>`; return; }
+            grid.innerHTML = filtered.map(n => {
+                const color = noteColors[n.colorIdx || 0];
+                return `<div class="sticky-note p-8 rounded-[2.5rem] bg-[#0f172a] border border-white/5 relative flex flex-col min-h-[260px] shadow-sm" style="border-top-color: ${color.text === 'text-green-400' ? '#16a34a' : '#ea580c'}">
+                    <div class="flex justify-between mb-4">
+                        <span class="text-[8px] font-black uppercase bg-black/40 border border-white/5 rounded px-2 py-1 text-slate-400">${n.category}</span>
+                        <button onclick="deleteNote('${n.id}')" class="text-black/30 hover:text-red-600 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                    <textarea oninput="updateNoteText('${n.id}', this.value)" class="bg-transparent border-none outline-none w-full flex-1 resize-none font-bold text-lg text-white leading-relaxed" placeholder="Write...">${n.text}</textarea>
+                </div>`
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // --- DASHBOARD ---
+        function updateDashboard() {
+            document.getElementById('statPrompts').textContent = prompts.length;
+            document.getElementById('statLeads').textContent = leads.length;
+            document.getElementById('statTasks').textContent = tasks.length;
+            document.getElementById('statNotes').textContent = notes.length;
+            const counts = {};
+            leadStatuses.forEach(s => counts[s] = leads.filter(l => l.status === s).length);
+            document.getElementById('pipelineStatusList').innerHTML = leadStatuses.map(s => `
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-[9px] font-black uppercase text-slate-500"><span>${s}</span><span class="text-white">${counts[s]}</span></div>
+                    <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-orange-600" style="width: ${(counts[s]/(leads.length || 1))*100}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- CRM ACTIONS ---
+        function openLeadModal() {
+            const container = document.getElementById('modalContainer');
+            container.innerHTML = `
+                <div class="p-10 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="text-2xl font-black text-white uppercase tracking-tighter">Register New Lead</h3>
+                    <button onclick="closeModal()" class="text-slate-500 hover:text-red-500 transition-all"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-10 space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" id="leadNameInput" placeholder="Lead Name" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none font-bold text-white focus:border-green-500">
+                        <input type="text" id="leadPhoneInput" placeholder="Phone Number" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none text-white focus:border-orange-500">
+                    </div>
+                    <input type="email" id="leadEmailInput" placeholder="Email Address" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none text-white focus:border-green-500">
+                    <input type="text" id="leadSourceInput" placeholder="Source (Google, Referral, etc.)" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none text-white focus:border-orange-500">
+                </div>
+                <div class="p-10 flex justify-end gap-5 bg-black/10">
+                    <button onclick="closeModal()" class="px-8 py-4 font-black text-slate-500 uppercase text-xs">Cancel</button>
+                    <button onclick="saveLead()" class="btn-primary px-12 py-4 text-white rounded-2xl font-black text-xs shadow-xl">SAVE PROSPECT</button>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function saveLead() {
+            const name = document.getElementById('leadNameInput').value.trim();
+            if(!name) return;
+            const newLead = {
+                id: 'L-' + (Date.now()).toString().slice(-6),
+                name,
+                phone: document.getElementById('leadPhoneInput').value || 'N/A',
+                email: document.getElementById('leadEmailInput').value || 'N/A',
+                source: document.getElementById('leadSourceInput').value || 'Direct',
+                status: 'New',
+                logs: [{ date: new Date().toLocaleString(), text: 'Registry Initialized.' }],
+                createdAt: new Date().toLocaleDateString()
+            };
+            leads.unshift(newLead); saveData(); renderLeads(); closeModal(); updateDashboard(); updateCounts();
+            showNotification('Lead added to system');
+        }
+
+        function openLeadDetail(id) {
+            currentLeadId = id; const l = leads.find(x => x.id === id); if(!l) return;
+            document.getElementById('detailLeadName').textContent = l.name;
+            document.getElementById('detailLeadId').textContent = `ID: ${l.id}`;
+            document.getElementById('detailLeadEmail').textContent = l.email;
+            document.getElementById('detailLeadPhone').textContent = l.phone;
+            document.getElementById('detailLeadSource').textContent = l.source;
+            document.getElementById('detailLeadStatus').value = l.status;
+            renderTimeline();
+            document.getElementById('leadDetailOverlay').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeLeadDetail() { document.getElementById('leadDetailOverlay').classList.add('hidden'); currentLeadId = null; }
+        function renderTimeline() {
+            const l = leads.find(x => x.id === currentLeadId);
+            const cont = document.getElementById('detailTimeline');
+            cont.innerHTML = l.logs.map(log => `
+                <div class="timeline-item relative pl-8 pb-4">
+                    <div class="absolute left-0 top-1.5 w-4 h-4 bg-green-500/20 border-2 border-green-500 rounded-full z-10 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                    <div class="bg-white/5 border border-white/5 p-5 rounded-2xl shadow-sm">
+                        <span class="text-[9px] font-black text-orange-500 block uppercase mb-1 tracking-widest">${log.date}</span>
+                        <p class="text-sm font-medium text-slate-300 leading-relaxed">${escapeHtml(log.text)}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addConversationLog() {
+            const input = document.getElementById('conversationInput');
+            const text = input.value.trim();
+            if(!text || !currentLeadId) return;
+            const l = leads.find(x => x.id === currentLeadId);
+            l.logs.unshift({ date: new Date().toLocaleString(), text });
+            input.value = ''; saveData(); renderTimeline();
+        }
+
+        function updateDetailLeadStatus(val) {
+            const l = leads.find(x => x.id === currentLeadId);
+            if(l) {
+                l.status = val;
+                l.logs.unshift({ date: new Date().toLocaleString(), text: `System: Status transitioned to ${val}` });
+                saveData(); renderLeads(); renderTimeline(); updateDashboard();
+            }
+        }
+
+        // --- GLOBAL ACTIONS ---
+        function exportJSON() {
+            const data = { prompts, notes, tasks, leads, actionPlan, date: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `agencypro_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            showNotification('Universal Backup Generated');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    prompts = data.prompts || []; notes = data.notes || []; tasks = data.tasks || []; leads = data.leads || []; actionPlan = data.actionPlan || '';
+                    saveData(); location.reload();
+                } catch(err) { showNotification('Invalid Backup Format'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetApp() { if(confirm('Wipe main storage? Local data will be lost. Backup first?')) { exportJSON(); setTimeout(() => { localStorage.clear(); location.reload(); }, 1000); } }
+
+        // --- ASSET HELPERS ---
+        function openModal(mode, id = null) {
+            const container = document.getElementById('modalContainer');
+            let p = { title: '', label: '', content: '' };
+            if(mode === 'edit' && id) { p = prompts.find(x => x.id === id); currentPromptId = id; } else { currentPromptId = null; }
+            container.innerHTML = `
+                <div class="p-10 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="text-2xl font-black text-white uppercase tracking-tighter">${mode === 'edit' ? 'Modify Asset' : 'Register Asset'}</h3>
+                    <button onclick="closeModal()" class="text-slate-500 hover:text-red-500 transition-all"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-10 space-y-6">
+                    <input type="text" id="promptInputTitle" value="${p.title}" placeholder="Asset Title" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none font-bold text-white focus:border-green-500">
+                    <input type="text" id="promptInputLabel" value="${p.label}" placeholder="Label (e.g. Script, SEO)" class="w-full px-6 py-3 rounded-2xl bg-slate-900 border border-white/5 outline-none text-white focus:border-orange-500">
+                    <textarea id="promptInputContent" rows="10" placeholder="Content Body" class="w-full px-6 py-4 rounded-2xl bg-slate-900 border border-white/5 outline-none resize-none text-white focus:border-green-500">${p.content}</textarea>
+                </div>
+                <div class="p-10 flex justify-end gap-5 bg-black/10">
+                    <button onclick="closeModal()" class="px-8 py-4 font-black text-slate-500 uppercase text-xs">Cancel</button>
+                    <button onclick="savePrompt()" class="btn-primary px-12 py-4 text-white rounded-2xl font-black text-xs shadow-xl">SAVE DATA</button>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        function savePrompt() {
+            const title = document.getElementById('promptInputTitle').value.trim();
+            const content = document.getElementById('promptInputContent').value.trim();
+            const label = document.getElementById('promptInputLabel').value.trim();
+            if(!title || !content) return;
+            if(currentPromptId) {
+                const idx = prompts.findIndex(x=>x.id===currentPromptId);
+                prompts[idx] = {...prompts[idx], title, content, label};
+            } else {
+                prompts.unshift({ id: 'p-'+Date.now(), title, content, label, createdAt: new Date().toISOString() });
+            }
+            saveData(); closeModal(); switchTab('prompts');
+        }
+
+        function openAssetViewer(id) {
+            currentPromptId = id; const p = prompts.find(x=>x.id===id);
+            document.getElementById('assetViewerOverlay').classList.remove('hidden');
+            document.getElementById('viewTitle').textContent = p.title;
+            document.getElementById('viewContent').textContent = p.content;
+            renderSidebar(); lucide.createIcons();
+        }
+        function closeAssetViewer() { document.getElementById('assetViewerOverlay').classList.add('hidden'); }
+        function copyDirect(id) { const p = prompts.find(x=>x.id===id); if(!p) return; const el = document.createElement('textarea'); el.value = p.content; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); showNotification('Content Clipped'); }
+        function copyCurrentPrompt() { if(currentPromptId) copyDirect(currentPromptId); }
+        function deleteAssetDirect(id) { if(confirm('Delete permanently?')) { prompts = prompts.filter(x=>x.id!==id); saveData(); renderPromptsGrid(); updateDashboard(); } }
+
+        // --- TASK & NOTE HANDLERS ---
+        function addNewTask() {
+            const val = document.getElementById('taskInput').value.trim();
+            if(!val) return;
+            tasks.unshift({ id: 't-'+Date.now(), text: val, done: false, category: 'Client', details: '', createdAt: new Date().toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) });
+            document.getElementById('taskInput').value = ''; renderTasks(); updateDashboard();
+        }
+        function updateTaskCategory(id, cat) { const t = tasks.find(x=>x.id===id); if(t){ t.category = cat; saveData(); renderTasks(); } }
+        function updateTaskDetails(id, val) { const t = tasks.find(x=>x.id===id); if(t){ t.details = val; saveData(); } }
+        function toggleTaskStatus(id) { const t = tasks.find(x=>x.id===id); if(t){ t.done = !t.done; saveData(); renderTasks(); } }
+        function deleteTask(id) { if(confirm('Delete?')){ tasks = tasks.filter(x=>x.id!==id); renderTasks(); updateDashboard(); } }
+
+        function addNewNote() { notes.unshift({ id: 'n-'+Date.now(), text: '', category: 'Idea', colorIdx: Math.floor(Math.random()*4) }); renderNotes(); updateDashboard(); }
+        function updateNoteCategory(id, cat) { const n = notes.find(x=>x.id===id); if(n){ n.category = cat; saveData(); renderNotes(); } }
+        function updateNoteText(id, val) { const n = notes.find(x=>x.id===id); if(n) { n.text = val; saveData(); } }
+        function deleteNote(id) { if(confirm('Delete?')) { notes = notes.filter(x=>x.id!==id); saveData(); renderNotes(); updateDashboard(); } }
+
+        function saveActionPlan() { actionPlan = document.getElementById('actionPlanInput').value; saveData(); }
+        function showNotification(msg) { const n = document.getElementById('notification'); document.getElementById('notificationText').textContent = msg; n.classList.remove('translate-y-40'); setTimeout(() => n.classList.add('translate-y-40'), 3000); }
+        function handleSearch() { const q = document.getElementById('searchInput').value.toLowerCase(); if (activeTab === 'prompts') renderPromptsGrid(); }
+        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    </script>
+</body>
+</html>
